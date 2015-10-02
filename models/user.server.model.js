@@ -6,7 +6,8 @@ var RollSchema = new Schema({
 	name: String,
 	dice: Number,
 	times: Number,
-	modifier: Number
+	modifier: Number,
+	explodingRoll: Boolean
 });
 
 var UserSchema = new Schema({
