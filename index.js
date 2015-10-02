@@ -64,11 +64,15 @@ var parseRollString = function(rollStr){
 
 var calculateRoll = function(roll){
 	var sum = 0;
+	var roll_record = "";
 	for (var i = 0; i < roll.times; i++) {
-		sum += Math.floor(Math.random() * roll.dice) + 1;
+		var temp = Math.floor(Math.random() * roll.dice) + 1;
+		sum += temp;
+		roll_record = roll_record.concat(temp, " ");
 	};
 	sum += roll.modifier;
-	return sum;
+	var result = "";
+	return result.concat(roll_record, "(", roll.modifier, ") = ", sum);
 }
 
 var calculateWodRoll = function(times,difficulty){
