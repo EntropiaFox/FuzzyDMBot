@@ -1,117 +1,11 @@
 var config = require('./config/config'),
 mongoose = require('./config/mongoose'),
 Bot = require('node-telegram-bot');
+RollHandler = require('./modules/RollHandler');
+CharacterHandler = require('./modules/CharacterHandler')
 var db = mongoose();
 
-var parseRollString = function(rollStr){
-	console.log(rollStr);
-	var explodes = false;
-	if(rollStr.indexOf('!') === (rollStr.length - 1)){
-		var explodes = true;
-		rollStr = rollStr.slice(0,-1);
-	}
-	if(rollStr.indexOf('d') === -1){
-		return false;
-	}
-	var splitStr = rollStr.split('d');
-	// console.log(splitStr);
-	var firstPart = splitStr[0];
-	var secondPart = rollStr.substring(firstPart.length + 1);
-
-	times = parseInt(firstPart);
-
-	if(times === NaN || times <= 0 || times > 100){
-		return false;
-	}
-	//no more than 100 due to abuse considerations
-	//firstInt is a positive integer at this point
-	console.log("times: " + times);
-
-	var dice = NaN;
-	var modifier = NaN;
-	if(rollStr.indexOf('+') > 0 ){
-		splitStr = secondPart.split('+');
-		if(splitStr.length > 2){
-			return false;
-		}
-		dice = parseInt(splitStr[0]);
-		modifier = parseInt(splitStr[1]);
-	} else if (rollStr.indexOf('-') > 0 ){
-		splitStr = secondPart.split('-');
-		if(splitStr.length > 2){
-			return false;
-		}
-		dice = parseInt(splitStr[0]);
-		modifier = -1 * parseInt(splitStr[1]);
-	} else {
-		dice = parseInt(secondPart);
-		modifier = 0;
-	}
-
-	if(dice === NaN || modifier === NaN){
-		return false;
-	}
-
-
-	rollValues = {
-		"times" : times,
-		"dice" : dice,
-		"modifier" : modifier,
-		"explodingRoll" : explodes
-	};
-
-
-	console.log(rollValues);
-
-	return rollValues;
-
-};
-
-
-var calculateRoll = function(roll){
-	var sum = 0;
-	var roll_record = "";
-	for (var i = 0; i < roll.times; i++) {
-		var temp = Math.floor(Math.random() * roll.dice) + 1;
-		if(roll.explodingRoll === true && temp === roll.dice) roll.times++;		
-		sum += temp;
-		roll_record = roll_record.concat(temp, " ");
-	};
-	sum += roll.modifier;
-	var details = "";
-	details = details.concat(roll_record, "(", roll.modifier, ") = ", sum);
-	rollResult = {
-		"details" : details,
-		"sum" : sum
-	};
-	return rollResult;
-}
-
-var calculateWodRoll = function(times,difficulty){
-
-	var success = 0;
-	var failure = 0;
-	for (var i = 0; i < times; i++) 
-	{
-		var rollResult =  (Math.floor(Math.random() * 10) + 1);
-		if(rollResult === 1)
-		{
-			failure++;
-		}
-		else if( rollResult >= difficulty ) 
-		{
-			success++;
-			if(rollResult === 10)
-			{
-				times++;
-			}
-		}
-	};
-	var result = {};
-	result.success = success;
-	result.failure = failure;
-	return result;
-}
+//Functionality related to Telegram bot and message parsing
 
 var bot = new Bot({
 	token: config.token
@@ -120,11 +14,32 @@ var bot = new Bot({
 	console.log(message);
 	var User = db.model('User');
 	var Roll = db.model('Roll');
-	var WodRoll = db.model('WodRoll');
+    var WodRoll = db.model('WodRoll');
+    var Character = db.model('Character');
 
 	if(message.hasOwnProperty("text"))
 	{
-		splitStr = message.text.split(" ");
+        var cmdStr = message.text;
+        var splitStr = message.text.split(" ");
+        
+        //Handling character commands first, as they can't be split properly using space as a separator
+        
+        if (splitStr[0] === "/savechar") {
+            var parsedMessage = CharacterHandler.parseCharStr(cmdStr);
+            if (parsedMessage === false) {
+                bot.sendMessage({ "chat_id" : message.chat.id , "reply_to_message_id" : message.message_id , "text" : "Invalid save format. The expected format is \"/savechar <character name (in double quotes)> <character campaign (in double quotes)> <URL to character sheet>\"" }, function (nodifiedPromise) { });
+                return;
+            }
+
+        }
+        else if (splitStr[0] === "/char") {
+
+        }
+        else if (splitStr[0] === "/deletechar") {
+
+        }
+
+        //console.log("cmdStr is: " + cmdStr);
 
 		if(splitStr.length === 1)
 		{
@@ -157,10 +72,10 @@ var bot = new Bot({
 			}
 			else if (splitStr[0] === "/help")
 			{
-				var msgText = "/help - show this message\n/register - register to start using the bot and save your custom rolls\n↳usage: \"/register\"\n\n===== d20 Rolls =====\n\n/qroll - quick roll without saving a custom roll\n↳usage: \"/qroll 1d4+1\"\n\n/save - save a custom roll\n↳usage \"/save magicmissile 1d4+1\"\n\n/roll - roll a previously saved custom roll, optionally repeat\n↳usage: \"/roll magicmissile\"\n↳usage: \"/roll magicmissile 5\"\n\n/show - show saved rolls\n↳usage: \"/show\"\n\n/delete - delete a saved roll\n↳usage: \"/delete magicmissile\"\n\n===== World of Darkness Rolls =====\n\n/wodsave - save a custom roll, with dice pool and difficulty, in that order\n↳usage: \"/wodsave attack 6 5\"\n\n/wod - roll a previously saved custom roll or an unsaved roll\n↳usage: \"/wod attack\"\n↳usage: \"/wod 6 5\"\n\n/wodshow - show saved rolls\n↳usage: \"/wodshow\"\n\n/woddelete - delete a saved roll\n↳usage: \"/woddelete attack\"";
+				var msgText = "/help - show this message\n/register - register to start using the bot and save your custom rolls\n↳usage: \"/register\"\n\n===== d20 Rolls =====\n\n/qroll - quick roll without saving a custom roll\n↳usage: \"/qroll 1d4+1\"\n\n/save - save a custom roll\n↳usage \"/save magicmissile 1d4+1\"\n\n/roll - roll a previously saved custom roll, optionally repeat\n↳usage: \"/roll magicmissile\"\n↳usage: \"/roll magicmissile 5\"\n\n/showrolls - show saved rolls\n↳usage: \"/showrolls\"\n\n/delete - delete a saved roll\n↳usage: \"/delete magicmissile\"\n\n===== World of Darkness Rolls =====\n\n/wodsave - save a custom roll, with dice pool and difficulty, in that order\n↳usage: \"/wodsave attack 6 5\"\n\n/wod - roll a previously saved custom roll or an unsaved roll\n↳usage: \"/wod attack\"\n↳usage: \"/wod 6 5\"\n\n/wodshow - show saved rolls\n↳usage: \"/wodshow\"\n\n/woddelete - delete a saved roll\n↳usage: \"/woddelete attack\"";
 				bot.sendMessage({"chat_id" : message.chat.id , "text" : msgText});
 			}
-			else if (splitStr[0] === "/show")
+			else if (splitStr[0] === "/showrolls")
 			{
 				var userCallback = function(err,user)
 				{
@@ -207,8 +122,44 @@ var bot = new Bot({
 				}
 				userCallback.message = message;
 				User.findOne({"id": message.from.id}, userCallback);
-			}
-			else if (splitStr[0] === "/wodshow")
+            }
+            else if (splitStr[0] === "/showchars") {
+                var userCallback = function (err, user) {
+                    if (err) {
+                        console.log(err);
+                        bot.sendMessage({ "chat_id" : message.chat.id , "text" : err.toString() }, function (nodifiedPromise) { });
+                        return
+                    }
+                    if (user === null) {
+                        bot.sendMessage({ "chat_id" : message.chat.id , "text" : "Please register first by typing \"/register\" (without the quotes)" });
+                    } else {
+                        //found user, now display its characters
+                        var charCallback = function (err, chars) {
+                            if (err) {
+                                console.log(err);
+                                bot.sendMessage({ "chat_id" : message.chat.id , "text" : err.toString() }, function (nodifiedPromise) { });
+                                return
+                            }
+                            if (chars === null) {
+                                bot.sendMessage({ "chat_id" : message.chat.id , "reply_to_message_id" : message.message_id , "text" : "No saved characters found. Please save a character first with \"/savechar <character name (enclosed in double quotes)> <campaign name (enclosed in double quotes)> <URL to character sheet> For example: \"/charsave \"Belinda Norwood\" \"The 7th Guest\" http://link.to.image/char1.png \"" }, function (nodifiedPromise) { });
+                            } 
+                            else {
+                                console.log('found characters');
+                                var msgText = 'Saved characters for ' + message.from.username + '\n';
+                                chars.forEach(function (val, ind, arr) {
+                                    //TODO: Write the function to display characters
+                                });
+                                bot.sendMessage({ "chat_id" : message.chat.id , "reply_to_message_id" : message.message_id , "text" : msgText }, function (nodifiedPromise) { });
+                            }
+                        }
+                        charCallback.message = message;
+                        Character.find({ "id": message.from.id }, charCallback);
+                    }
+                }
+                userCallback.message = message;
+                User.findOne({ "id": message.from.id }, userCallback);
+            }
+			else if (splitStr[0] === "/showwod")
 			{
 				var userCallback = function(err,user)
 				{
@@ -290,7 +241,7 @@ var bot = new Bot({
 								newRoll.dice = roll.dice;
 								newRoll.modifier = roll.modifier;
 								newRoll.explodingRoll = roll.explodingRoll;
-								result = calculateRoll(newRoll);
+								result = RollHandler.calculateRoll(newRoll);
 								bot.sendMessage({"chat_id" : message.chat.id , "reply_to_message_id" : message.message_id ,"text" : message.from.username + " | " + key + " | " + result.details },function(nodifiedPromise){});
 							}
 
@@ -306,12 +257,12 @@ var bot = new Bot({
 			} 
 			else if(splitStr[0] === "/qroll")
 			{
-				var roll = parseRollString(splitStr[1]);
+				var roll = RollHandler.parseRollString(splitStr[1]);
 				if(roll === false){
 					bot.sendMessage({"chat_id" : message.chat.id , "reply_to_message_id" : message.message_id ,"text" : "Invalid roll format or unsaved custom roll. The expected format is \"/qroll <integer>d<integer>{+,-}<integer>\", for example: \"/qroll 2d12+4\""},function(nodifiedPromise){});
 					return
 				}
-				var result = calculateRoll(roll);
+				var result = RollHandler.calculateRoll(roll);
 				bot.sendMessage({"chat_id" : message.chat.id , "reply_to_message_id" : message.message_id ,"text" : message.from.username + " | " + splitStr[1] + " | " + result.details },function(nodifiedPromise){});
 			}
 			else if(splitStr[0] === "/wod")
@@ -344,7 +295,7 @@ var bot = new Bot({
 							} 
 							else 
 							{
-								result = calculateWodRoll(wodroll.times,wodroll.difficulty);
+								result = RollHandler.calculateWodRoll(wodroll.times,wodroll.difficulty);
 								console.log(result);
 								var msgText = message.from.username + " | " + key + " | " + (result.success-result.failure) + '\n';
 								console.log(msgText);
@@ -447,14 +398,14 @@ var bot = new Bot({
 				userCallback.message = message;
 				userCallback.key = key;
 				User.findOne({"id": message.from.id}, userCallback);
-			} 
+            }
 		}
 		else if (splitStr.length === 3)
 		{
 			if(splitStr[0] === "/save")
 			{
 				var key = splitStr[1];
-				var roll = parseRollString(splitStr[2]);
+				var roll = RollHandler.parseRollString(splitStr[2]);
 
 				if(roll === false)
 				{
@@ -543,7 +494,7 @@ var bot = new Bot({
 									var msgText = 'Rolling ' + key + ' ' + nTimes + ' times for ' + message.from.username + '\n';
 									var sum = 0;
 									for (var i = 0; i < nTimes; i++) {
-										var rollResult = calculateRoll(newRoll);
+										var rollResult = RollHandler.calculateRoll(newRoll);
 										msgText += rollResult.details + " | ";
 										sum += rollResult.sum;
 									};
@@ -573,7 +524,7 @@ var bot = new Bot({
 
 				if(times > 0 && times <= 100 && difficulty > 0 && difficulty <= 10)
 				{
-					result = calculateWodRoll(times,difficulty);
+					result = RollHandler.calculateWodRoll(times,difficulty);
 					console.log(result);
 					var msgText = message.from.username + " | " + times + " dice at difficulty " + difficulty + " | Result: " + (result.success-result.failure) + '\n';
 					console.log(msgText);

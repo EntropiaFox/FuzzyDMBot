@@ -10,6 +10,13 @@ var RollSchema = new Schema({
 	explodingRoll: Boolean
 });
 
+var CharacterSchema = new Schema({
+    id: Number,
+    name: String,
+    campaign: String,
+    sheet: String
+});
+
 var WodRollSchema = new Schema({
 	id: Number,
 	name: String,
@@ -19,7 +26,8 @@ var WodRollSchema = new Schema({
 
 var UserSchema = new Schema({
 	id: Number,
-	rolls:[RollSchema]
+    rolls: [RollSchema],
+    characters: [CharacterSchema]
 });
 
 
@@ -27,3 +35,4 @@ var UserSchema = new Schema({
 mongoose.model('User', UserSchema);
 mongoose.model('Roll', RollSchema);
 mongoose.model('WodRoll', WodRollSchema);
+mongoose.model('Character', CharacterSchema);
